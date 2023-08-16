@@ -1,89 +1,126 @@
+use std::{iter::Peekable, str::Chars};
+
 use crate::token::{
-    lookup_ident, Token, TokenType, ASSIGN, COMMA, ILLEGAL, INT, LBRACE, LPAREN, PLUS, RBRACE,
-    RPAREN, SEMICOLON,
+    lookup_ident, Token, TokenType, ASSIGN, ASTERISK, BANG, COMMA, EOF, EQ, GT, ILLEGAL, INT,
+    LBRACE, LPAREN, LT, MINUS, NOT_EQ, PLUS, RBRACE, RPAREN, SEMICOLON, SLASH,
 };
 
-struct Lexer {
-    input: String,
-    position: usize,
-    read_position: usize,
-    ch: char,
+struct Lexer<'a> {
+    input: Peekable<Chars<'a>>,
 }
 
-impl Lexer {
-    fn new(input: impl Into<String>) -> Self {
-        let mut l = Self {
-            input: input.into(),
-            position: 0,
-            read_position: 0,
-            ch: ' ',
-        };
-        l.read_char();
-        l
+impl<'a> Lexer<'a> {
+    fn new(input: &'a str) -> Self {
+        Lexer {
+            input: input.chars().peekable(),
+        }
     }
 
-    fn read_char(&mut self) {
-        if let Some(ch) = self.input.chars().nth(self.read_position) {
-            self.ch = ch;
-        } else {
-            self.ch = ' ';
-        }
-        self.position = self.read_position;
-        self.read_position += 1;
+    fn read_char(&mut self) -> Option<char> {
+        self.input.next()
     }
 
     fn next_token(&mut self) -> Token {
         self.skip_whitespace();
-        let tok = match self.ch {
-            '=' => new_token(ASSIGN, self.ch),
-            ';' => new_token(SEMICOLON, self.ch),
-            '(' => new_token(LPAREN, self.ch),
-            ')' => new_token(RPAREN, self.ch),
-            ',' => new_token(COMMA, self.ch),
-            '+' => new_token(PLUS, self.ch),
-            '{' => new_token(LBRACE, self.ch),
-            '}' => new_token(RBRACE, self.ch),
-            _ => {
-                if is_letter(self.ch) {
-                    let literal = self.read_identifier();
-                    return Token {
-                        token_type: lookup_ident(&literal),
-                        literal,
-                    };
-                } else if self.ch.is_digit(10) {
-                    return Token {
-                        token_type: INT,
-                        literal: self.read_number(),
-                    };
-                } else {
-                    new_token(ILLEGAL, self.ch)
+        self.read_char()
+            .map(|ch| match ch {
+                '=' => {
+                    if let Some(tok) =
+                        self.peek_char()
+                            .filter(|&peek_ch| peek_ch == '=')
+                            .map(|peek_ch| Token {
+                                token_type: EQ,
+                                literal: format!("{}{}", ch, peek_ch),
+                            })
+                    {
+                        self.read_char();
+                        tok
+                    } else {
+                        new_token(ASSIGN, ch)
+                    }
                 }
-            }
-        };
-        self.read_char();
-        tok
+                '+' => new_token(PLUS, ch),
+                '-' => new_token(MINUS, ch),
+                '!' => {
+                    if let Some(tok) =
+                        self.peek_char()
+                            .filter(|&peek_ch| peek_ch == '=')
+                            .map(|peek_ch| Token {
+                                token_type: NOT_EQ,
+                                literal: format!("{}{}", ch, peek_ch),
+                            })
+                    {
+                        self.read_char();
+                        tok
+                    } else {
+                        new_token(BANG, ch)
+                    }
+                }
+                '/' => new_token(SLASH, ch),
+                '*' => new_token(ASTERISK, ch),
+                '<' => new_token(LT, ch),
+                '>' => new_token(GT, ch),
+                ';' => new_token(SEMICOLON, ch),
+                ',' => new_token(COMMA, ch),
+                '(' => new_token(LPAREN, ch),
+                ')' => new_token(RPAREN, ch),
+                '{' => new_token(LBRACE, ch),
+                '}' => new_token(RBRACE, ch),
+                _ => {
+                    if is_letter(ch) {
+                        let literal = self.read_identifier(ch);
+                        Token {
+                            token_type: lookup_ident(&literal),
+                            literal,
+                        }
+                    } else if ch.is_ascii_digit() {
+                        Token {
+                            token_type: INT,
+                            literal: self.read_number(ch),
+                        }
+                    } else {
+                        new_token(ILLEGAL, ch)
+                    }
+                }
+            })
+            .unwrap_or(new_token(EOF, ' '))
     }
 
-    fn read_identifier(&mut self) -> String {
-        let position = self.position;
-        while is_letter(self.ch) {
+    fn read_identifier(&mut self, ch: char) -> String {
+        let mut ident = ch.to_string();
+        while let Some(ch) = self.peek_char() {
+            if !is_letter(ch) {
+                break;
+            }
+            ident = format!("{}{}", ident, ch);
             self.read_char();
         }
-        self.input[position..self.position].to_string()
+        ident
     }
 
     fn skip_whitespace(&mut self) {
-        while self.ch.is_ascii_whitespace() {
+        while let Some(ch) = self.peek_char() {
+            if !ch.is_ascii_whitespace() {
+                break;
+            }
             self.read_char();
         }
     }
 
-    fn read_number(&mut self) -> String {
-        let position = self.position;
-        while self.ch.is_digit(10) {
-            self.read_char()
+    fn read_number(&mut self, ch: char) -> String {
+        let mut int = ch.to_string();
+        while let Some(ch) = self.peek_char() {
+            if !ch.is_ascii_digit() {
+                break;
+            }
+            int = format!("{}{}", int, ch);
+            self.read_char();
         }
-        self.input[position..self.position].to_string()
+        int
+    }
+
+    fn peek_char(&mut self) -> Option<char> {
+        self.input.peek().copied()
     }
 }
 
@@ -102,7 +139,8 @@ fn is_letter(ch: char) -> bool {
 mod tests {
     use crate::lexer::Lexer;
     use crate::token::{
-        ASSIGN, COMMA, FUNCTION, IDENT, INT, LBRACE, LET, LPAREN, PLUS, RBRACE, RPAREN, SEMICOLON,
+        ASSIGN, ASTERISK, BANG, COMMA, ELSE, EOF, EQ, FALSE, FUNCTION, GT, IDENT, IF, INT, LBRACE,
+        LET, LPAREN, LT, MINUS, NOT_EQ, PLUS, RBRACE, RETURN, RPAREN, SEMICOLON, SLASH, TRUE,
     };
 
     #[test]
@@ -115,8 +153,20 @@ mod tests {
         };
 
         let result = add(five, ten);
+        !-/*5;
+        5 < 10 > 5;
+
+        if (5 < 10) {
+          return true;
+        } else {
+          return false;
+        }
+
+        10 == 10;
+        10 != 9;
         "
         .to_string();
+
         let tests = [
             (LET, "let"),
             (IDENT, "five"),
@@ -154,13 +204,50 @@ mod tests {
             (IDENT, "ten"),
             (RPAREN, ")"),
             (SEMICOLON, ";"),
+            (BANG, "!"),
+            (MINUS, "-"),
+            (SLASH, "/"),
+            (ASTERISK, "*"),
+            (INT, "5"),
+            (SEMICOLON, ";"),
+            (INT, "5"),
+            (LT, "<"),
+            (INT, "10"),
+            (GT, ">"),
+            (INT, "5"),
+            (SEMICOLON, ";"),
+            (IF, "if"),
+            (LPAREN, "("),
+            (INT, "5"),
+            (LT, "<"),
+            (INT, "10"),
+            (RPAREN, ")"),
+            (LBRACE, "{"),
+            (RETURN, "return"),
+            (TRUE, "true"),
+            (SEMICOLON, ";"),
+            (RBRACE, "}"),
+            (ELSE, "else"),
+            (LBRACE, "{"),
+            (RETURN, "return"),
+            (FALSE, "false"),
+            (SEMICOLON, ";"),
+            (RBRACE, "}"),
+            (INT, "10"),
+            (EQ, "=="),
+            (INT, "10"),
+            (SEMICOLON, ";"),
+            (INT, "10"),
+            (NOT_EQ, "!="),
+            (INT, "9"),
+            (SEMICOLON, ";"),
+            (EOF, " "),
         ];
 
-        let mut l = Lexer::new(input);
+        let mut l = Lexer::new(&input);
 
         for (i, tt) in tests.into_iter().enumerate() {
             let tok = l.next_token();
-            println!("{}", tok.literal);
             if tok.token_type != tt.0 {
                 panic!(
                     "tests[{}] - tokentype wrong. expected={}, got={}",
