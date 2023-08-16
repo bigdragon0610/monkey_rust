@@ -1,37 +1,37 @@
-pub const ILLEGAL: TokenType = "ILLEGAL";
-pub const EOF: TokenType = "EOF";
+pub(crate) const ILLEGAL: TokenType = "ILLEGAL";
+pub(crate) const EOF: TokenType = "EOF";
 
-pub const IDENT: TokenType = "IDENT";
-pub const INT: TokenType = "INT";
+pub(crate) const IDENT: TokenType = "IDENT";
+pub(crate) const INT: TokenType = "INT";
 
-pub const ASSIGN: TokenType = "=";
-pub const PLUS: TokenType = "+";
-pub const MINUS: TokenType = "-";
-pub const BANG: TokenType = "!";
-pub const ASTERISK: TokenType = "*";
-pub const SLASH: TokenType = "/";
+pub(crate) const ASSIGN: TokenType = "=";
+pub(crate) const PLUS: TokenType = "+";
+pub(crate) const MINUS: TokenType = "-";
+pub(crate) const BANG: TokenType = "!";
+pub(crate) const ASTERISK: TokenType = "*";
+pub(crate) const SLASH: TokenType = "/";
 
-pub const LT: TokenType = "<";
-pub const GT: TokenType = ">";
+pub(crate) const LT: TokenType = "<";
+pub(crate) const GT: TokenType = ">";
 
-pub const COMMA: TokenType = ",";
-pub const SEMICOLON: TokenType = ";";
+pub(crate) const COMMA: TokenType = ",";
+pub(crate) const SEMICOLON: TokenType = ";";
 
-pub const LPAREN: TokenType = "(";
-pub const RPAREN: TokenType = ")";
-pub const LBRACE: TokenType = "{";
-pub const RBRACE: TokenType = "}";
+pub(crate) const LPAREN: TokenType = "(";
+pub(crate) const RPAREN: TokenType = ")";
+pub(crate) const LBRACE: TokenType = "{";
+pub(crate) const RBRACE: TokenType = "}";
 
-pub const FUNCTION: TokenType = "FUNCTION";
-pub const LET: TokenType = "LET";
-pub const TRUE: TokenType = "TRUE";
-pub const FALSE: TokenType = "FALSE";
-pub const IF: TokenType = "IF";
-pub const ELSE: TokenType = "ELSE";
-pub const RETURN: TokenType = "RETURN";
+pub(crate) const FUNCTION: TokenType = "FUNCTION";
+pub(crate) const LET: TokenType = "LET";
+pub(crate) const TRUE: TokenType = "TRUE";
+pub(crate) const FALSE: TokenType = "FALSE";
+pub(crate) const IF: TokenType = "IF";
+pub(crate) const ELSE: TokenType = "ELSE";
+pub(crate) const RETURN: TokenType = "RETURN";
 
-pub const EQ: TokenType = "==";
-pub const NOT_EQ: TokenType = "!=";
+pub(crate) const EQ: TokenType = "==";
+pub(crate) const NOT_EQ: TokenType = "!=";
 
 const KEYWORDS: [(&str, TokenType); 7] = [
     ("fn", FUNCTION),
@@ -43,7 +43,7 @@ const KEYWORDS: [(&str, TokenType); 7] = [
     ("return", RETURN),
 ];
 
-pub fn lookup_ident(ident: &str) -> TokenType {
+pub(crate) fn lookup_ident(ident: &str) -> TokenType {
     if let Some(tok) = KEYWORDS
         .iter()
         .find_map(|kw| if kw.0 == ident { Some(kw.1) } else { None })
@@ -53,9 +53,9 @@ pub fn lookup_ident(ident: &str) -> TokenType {
     IDENT
 }
 
-pub type TokenType = &'static str;
+pub(crate) type TokenType = &'static str;
 
-pub struct Token {
+pub(crate) struct Token {
     pub(crate) token_type: TokenType,
     pub(crate) literal: String,
 }
