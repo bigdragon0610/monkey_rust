@@ -1,5 +1,3 @@
-use std::{iter::Peekable, str::Chars};
-
 use crate::token::{
     lookup_ident, Token,
     TokenType::{
@@ -8,35 +6,30 @@ use crate::token::{
     },
 };
 
-pub struct Lexer<'a> {
-    input: Peekable<Chars<'a>>,
+pub struct Lexer {
+    input: String,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
-        Lexer {
-            input: input.chars().peekable(),
-        }
+impl Lexer {
+    pub fn new(input: String) -> Self {
+        Lexer { input }
     }
 
-    fn read_char(&mut self) -> Option<char> {
-        self.input.next()
-    }
-
-    pub fn next_token(&mut self) -> Token {
-        self.skip_whitespace();
-        self.read_char()
+    pub fn next_token(&self, position: usize) -> (Token, usize) {
+        let mut position = self.skip_whitespace(position);
+        let tok = self
+            .read_char(position)
             .map(|ch| match ch {
                 '=' => {
-                    if let Some(tok) =
-                        self.peek_char()
-                            .filter(|&peek_ch| peek_ch == '=')
-                            .map(|peek_ch| Token {
-                                token_type: EQ,
-                                literal: format!("{}{}", ch, peek_ch),
-                            })
+                    if let Some(tok) = self
+                        .read_char(position + 1)
+                        .filter(|&peek_ch| peek_ch == '=')
+                        .map(|peek_ch| Token {
+                            token_type: EQ,
+                            literal: format!("{}{}", ch, peek_ch),
+                        })
                     {
-                        self.read_char();
+                        position += 1;
                         tok
                     } else {
                         new_token(ASSIGN, ch)
@@ -45,15 +38,15 @@ impl<'a> Lexer<'a> {
                 '+' => new_token(PLUS, ch),
                 '-' => new_token(MINUS, ch),
                 '!' => {
-                    if let Some(tok) =
-                        self.peek_char()
-                            .filter(|&peek_ch| peek_ch == '=')
-                            .map(|peek_ch| Token {
-                                token_type: NOTEQ,
-                                literal: format!("{}{}", ch, peek_ch),
-                            })
+                    if let Some(tok) = self
+                        .read_char(position + 1)
+                        .filter(|&peek_ch| peek_ch == '=')
+                        .map(|peek_ch| Token {
+                            token_type: NOTEQ,
+                            literal: format!("{}{}", ch, peek_ch),
+                        })
                     {
-                        self.read_char();
+                        position += 1;
                         tok
                     } else {
                         new_token(BANG, ch)
@@ -71,59 +64,65 @@ impl<'a> Lexer<'a> {
                 '}' => new_token(RBRACE, ch),
                 _ => {
                     if is_letter(ch) {
-                        let literal = self.read_identifier(ch);
+                        let read_position = self.read_identifier(position);
+                        let literal = self.input[position..read_position].to_string();
+                        position = read_position - 1;
                         Token {
                             token_type: lookup_ident(&literal),
                             literal,
                         }
                     } else if ch.is_ascii_digit() {
+                        let read_position = self.read_number(position);
+                        let literal = self.input[position..read_position].to_string();
+                        position = read_position - 1;
                         Token {
                             token_type: INT,
-                            literal: self.read_number(ch),
+                            literal,
                         }
                     } else {
                         new_token(ILLEGAL, ch)
                     }
                 }
             })
-            .unwrap_or(new_token(EOF, ' '))
+            .unwrap_or(new_token(EOF, ' '));
+        (tok, position + 1)
     }
 
-    fn read_identifier(&mut self, ch: char) -> String {
-        let mut ident = ch.to_string();
-        while let Some(ch) = self.peek_char() {
+    fn read_char(&self, position: usize) -> Option<char> {
+        self.input.chars().nth(position)
+    }
+
+    fn read_identifier(&self, position: usize) -> usize {
+        let mut position = position;
+        while let Some(ch) = self.read_char(position) {
             if !is_letter(ch) {
                 break;
             }
-            ident = format!("{}{}", ident, ch);
-            self.read_char();
+            position += 1;
         }
-        ident
+        position
     }
 
-    fn skip_whitespace(&mut self) {
-        while let Some(ch) = self.peek_char() {
+    fn skip_whitespace(&self, position: usize) -> usize {
+        let mut position = position;
+        while let Some(ch) = self.read_char(position) {
             if !ch.is_ascii_whitespace() {
                 break;
             }
-            self.read_char();
+            position += 1;
         }
+        position
     }
 
-    fn read_number(&mut self, ch: char) -> String {
-        let mut int = ch.to_string();
-        while let Some(ch) = self.peek_char() {
+    fn read_number(&self, position: usize) -> usize {
+        let mut position = position;
+        while let Some(ch) = self.read_char(position) {
             if !ch.is_ascii_digit() {
                 break;
             }
-            int = format!("{}{}", int, ch);
-            self.read_char();
+            position += 1;
         }
-        int
-    }
-
-    fn peek_char(&mut self) -> Option<char> {
-        self.input.peek().copied()
+        position
     }
 }
 
@@ -247,10 +246,11 @@ mod tests {
             (EOF, " "),
         ];
 
-        let mut l = Lexer::new(&input);
+        let l = Lexer::new(input);
+        let mut posiiton = 0;
 
         for (i, tt) in tests.into_iter().enumerate() {
-            let tok = l.next_token();
+            let (tok, read_position) = l.next_token(posiiton);
             if tok.token_type != tt.0 {
                 panic!(
                     "tests[{}] - tokentype wrong. expected={:?}, got={:?}",
@@ -264,6 +264,7 @@ mod tests {
                     i, tt.1, tok.literal
                 )
             }
+            posiiton = read_position;
         }
     }
 }
