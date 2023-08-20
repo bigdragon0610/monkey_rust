@@ -4,6 +4,7 @@ use crate::{
     token::{Token, TokenType},
 };
 
+#[derive(Debug)]
 pub struct Parser {
     l: Lexer,
     cur_token: Token,
@@ -11,14 +12,14 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(l: Lexer, position: usize) -> Parser {
+    pub fn new(l: Lexer) -> Parser {
         let mut p = Parser {
             l,
             cur_token: Token::new(),
             peek_token: Token::new(),
         };
 
-        let position = p.next_token(position);
+        let position = p.next_token(0);
         p.next_token(position);
 
         p
@@ -31,9 +32,9 @@ impl Parser {
         position
     }
 
-    pub fn parse_program(&mut self, position: usize) -> Program {
+    pub fn parse_program(&mut self) -> Program {
         let mut program = Program::new();
-        let mut position = position;
+        let mut position = 0;
 
         while self.cur_token.token_type != TokenType::EOF {
             if let (Some(stmt), expect_position) = self.parse_statement(position) {
@@ -45,15 +46,16 @@ impl Parser {
         program
     }
 
-    fn parse_statement(&mut self, position: usize) -> (Option<Box<dyn Statement>>, usize) {
+    fn parse_statement(&mut self, position: usize) -> (Option<Statement>, usize) {
         match self.cur_token.token_type {
             TokenType::LET => self.parse_let_statement(position),
             _ => (None, position),
         }
     }
 
-    fn parse_let_statement(&mut self, position: usize) -> (Option<Box<dyn Statement>>, usize) {
+    fn parse_let_statement(&mut self, position: usize) -> (Option<Statement>, usize) {
         let mut stmt = LetStatement::new();
+        stmt.token = self.cur_token.clone();
         let mut position = position;
 
         if let Some(expect_position) = self.expect_peek(TokenType::IDENT, position) {
@@ -77,7 +79,7 @@ impl Parser {
             position = self.next_token(position);
         }
 
-        (Some(Box::new(stmt) as Box<dyn Statement>), position)
+        (Some(Statement::LetStatement(stmt)), position)
     }
 
     fn cur_token_is(&self, t: TokenType) -> bool {
@@ -95,10 +97,7 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        ast::{LetStatement, Statement},
-        lexer::Lexer,
-    };
+    use crate::{ast::Statement, lexer::Lexer};
 
     use super::Parser;
 
@@ -111,11 +110,10 @@ mod tests {
         "
         .to_string();
 
-        let position = 0;
         let l = Lexer::new(input);
-        let mut p = Parser::new(l, position);
+        let mut p = Parser::new(l);
 
-        let program = p.parse_program(position);
+        let program = p.parse_program();
         if program.statements.len() != 3 {
             panic!(
                 "program.statements does not contain 3 statements. got={}",
@@ -127,16 +125,39 @@ mod tests {
         for (i, tt) in tests.iter().enumerate() {
             let stmt = &program.statements[i];
             if !test_let_statement(stmt, tt) {
-                return;
+                panic!();
             }
         }
     }
 
-    fn test_let_statement(s: &Box<dyn Statement>, name: &str) -> bool {
+    fn test_let_statement(s: &Statement, name: &str) -> bool {
         if s.token_literal() != "let" {
             println!("s.token_literal not 'let'. got={}", s.token_literal());
             return false;
         }
+
+        if let Statement::LetStatement(let_stmt) = s {
+            if let_stmt.name.value != name {
+                println!(
+                    "let_stmt.name.value not '{}'. got={}",
+                    name, let_stmt.name.value
+                );
+                return false;
+            }
+
+            if let_stmt.name.token_literal() != name {
+                println!(
+                    "let_stmt.name.token_literal() not '{}', got={}",
+                    name,
+                    let_stmt.name.token_literal()
+                );
+                return false;
+            }
+        } else {
+            println!("s not LetStatement. got={:?}", s);
+            return false;
+        }
+
         true
     }
 }

@@ -1,19 +1,8 @@
 use crate::token::Token;
 
-pub trait Node {
-    fn token_literal(&self) -> String;
-}
-
-pub trait Statement: Node {
-    fn statement_node(&self);
-}
-
-pub trait Expression: Node {
-    fn expression_node(&self);
-}
-
+#[derive(Debug)]
 pub struct Program {
-    pub statements: Vec<Box<dyn Statement>>,
+    pub statements: Vec<Statement>,
 }
 
 impl Program {
@@ -30,10 +19,26 @@ impl Program {
     }
 }
 
+#[derive(Debug)]
+pub enum Statement {
+    LetStatement(LetStatement),
+    Other,
+}
+
+impl Statement {
+    pub fn token_literal(&self) -> String {
+        match self {
+            Self::LetStatement(let_stmt) => let_stmt.token.literal.clone(),
+            _ => String::new(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct LetStatement {
     pub token: Token,
     pub name: Identifier,
-    pub value: Option<Box<dyn Expression>>,
+    pub value: Option<Expression>,
 }
 
 impl LetStatement {
@@ -46,16 +51,20 @@ impl LetStatement {
     }
 }
 
-impl Node for LetStatement {
-    fn token_literal(&self) -> String {
-        self.token.literal.clone()
+#[derive(Debug)]
+pub enum Expression {
+    Identifier(Identifier),
+}
+
+impl Expression {
+    pub fn token_literal(&self) -> String {
+        match self {
+            Self::Identifier(identifier) => identifier.token.literal.clone(),
+        }
     }
 }
 
-impl Statement for LetStatement {
-    fn statement_node(&self) {}
-}
-
+#[derive(Debug)]
 pub struct Identifier {
     pub token: Token,
     pub value: String,
@@ -68,8 +77,6 @@ impl Identifier {
             value: String::default(),
         }
     }
-
-    fn expression_node() {}
 
     pub fn token_literal(&self) -> String {
         self.token.literal.clone()
