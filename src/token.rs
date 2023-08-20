@@ -1,5 +1,6 @@
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Default, Clone, Copy)]
 pub enum TokenType {
+    #[default]
     ILLEGAL,
     EOF,
     IDENT,
@@ -49,7 +50,17 @@ pub fn lookup_ident(ident: &str) -> TokenType {
     TokenType::IDENT
 }
 
+#[derive(Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub literal: String,
+}
+
+impl Token {
+    pub fn new() -> Self {
+        Token {
+            token_type: TokenType::default(),
+            literal: String::default(),
+        }
+    }
 }
