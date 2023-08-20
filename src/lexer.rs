@@ -5,12 +5,12 @@ use crate::token::{
     LBRACE, LPAREN, LT, MINUS, NOT_EQ, PLUS, RBRACE, RPAREN, SEMICOLON, SLASH,
 };
 
-pub(crate) struct Lexer<'a> {
+pub struct Lexer<'a> {
     input: Peekable<Chars<'a>>,
 }
 
 impl<'a> Lexer<'a> {
-    pub(crate) fn new(input: &'a str) -> Self {
+    pub fn new(input: &'a str) -> Self {
         Lexer {
             input: input.chars().peekable(),
         }
@@ -20,7 +20,7 @@ impl<'a> Lexer<'a> {
         self.input.next()
     }
 
-    pub(crate) fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         self.read_char()
             .map(|ch| match ch {

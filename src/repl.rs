@@ -4,7 +4,7 @@ use crate::{lexer::Lexer, token::EOF};
 
 const PROMPT: &str = ">> ";
 
-pub(crate) fn start() {
+pub fn start() {
     let mut buf = String::new();
     loop {
         print!("{}", PROMPT);
