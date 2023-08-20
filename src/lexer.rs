@@ -1,8 +1,11 @@
 use std::{iter::Peekable, str::Chars};
 
 use crate::token::{
-    lookup_ident, Token, TokenType, ASSIGN, ASTERISK, BANG, COMMA, EOF, EQ, GT, ILLEGAL, INT,
-    LBRACE, LPAREN, LT, MINUS, NOT_EQ, PLUS, RBRACE, RPAREN, SEMICOLON, SLASH,
+    lookup_ident, Token,
+    TokenType::{
+        self, ASSIGN, ASTERISK, BANG, COMMA, EOF, EQ, GT, ILLEGAL, INT, LBRACE, LPAREN, LT, MINUS,
+        NOTEQ, PLUS, RBRACE, RPAREN, SEMICOLON, SLASH,
+    },
 };
 
 pub struct Lexer<'a> {
@@ -46,7 +49,7 @@ impl<'a> Lexer<'a> {
                         self.peek_char()
                             .filter(|&peek_ch| peek_ch == '=')
                             .map(|peek_ch| Token {
-                                token_type: NOT_EQ,
+                                token_type: NOTEQ,
                                 literal: format!("{}{}", ch, peek_ch),
                             })
                     {
@@ -138,9 +141,9 @@ fn is_letter(ch: char) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::lexer::Lexer;
-    use crate::token::{
+    use crate::token::TokenType::{
         ASSIGN, ASTERISK, BANG, COMMA, ELSE, EOF, EQ, FALSE, FUNCTION, GT, IDENT, IF, INT, LBRACE,
-        LET, LPAREN, LT, MINUS, NOT_EQ, PLUS, RBRACE, RETURN, RPAREN, SEMICOLON, SLASH, TRUE,
+        LET, LPAREN, LT, MINUS, NOTEQ, PLUS, RBRACE, RETURN, RPAREN, SEMICOLON, SLASH, TRUE,
     };
 
     #[test]
@@ -238,7 +241,7 @@ mod tests {
             (INT, "10"),
             (SEMICOLON, ";"),
             (INT, "10"),
-            (NOT_EQ, "!="),
+            (NOTEQ, "!="),
             (INT, "9"),
             (SEMICOLON, ";"),
             (EOF, " "),
@@ -250,7 +253,7 @@ mod tests {
             let tok = l.next_token();
             if tok.token_type != tt.0 {
                 panic!(
-                    "tests[{}] - tokentype wrong. expected={}, got={}",
+                    "tests[{}] - tokentype wrong. expected={:?}, got={:?}",
                     i, tt.0, tok.token_type
                 );
             }

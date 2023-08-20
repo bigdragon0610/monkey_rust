@@ -1,46 +1,42 @@
-pub const ILLEGAL: TokenType = "ILLEGAL";
-pub const EOF: TokenType = "EOF";
-
-pub const IDENT: TokenType = "IDENT";
-pub const INT: TokenType = "INT";
-
-pub const ASSIGN: TokenType = "=";
-pub const PLUS: TokenType = "+";
-pub const MINUS: TokenType = "-";
-pub const BANG: TokenType = "!";
-pub const ASTERISK: TokenType = "*";
-pub const SLASH: TokenType = "/";
-
-pub const LT: TokenType = "<";
-pub const GT: TokenType = ">";
-
-pub const COMMA: TokenType = ",";
-pub const SEMICOLON: TokenType = ";";
-
-pub const LPAREN: TokenType = "(";
-pub const RPAREN: TokenType = ")";
-pub const LBRACE: TokenType = "{";
-pub const RBRACE: TokenType = "}";
-
-pub const FUNCTION: TokenType = "FUNCTION";
-pub const LET: TokenType = "LET";
-pub const TRUE: TokenType = "TRUE";
-pub const FALSE: TokenType = "FALSE";
-pub const IF: TokenType = "IF";
-pub const ELSE: TokenType = "ELSE";
-pub const RETURN: TokenType = "RETURN";
-
-pub const EQ: TokenType = "==";
-pub const NOT_EQ: TokenType = "!=";
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum TokenType {
+    ILLEGAL,
+    EOF,
+    IDENT,
+    INT,
+    ASSIGN,
+    PLUS,
+    MINUS,
+    BANG,
+    ASTERISK,
+    SLASH,
+    LT,
+    GT,
+    COMMA,
+    SEMICOLON,
+    LPAREN,
+    RPAREN,
+    LBRACE,
+    RBRACE,
+    FUNCTION,
+    LET,
+    TRUE,
+    FALSE,
+    IF,
+    ELSE,
+    RETURN,
+    EQ,
+    NOTEQ,
+}
 
 const KEYWORDS: [(&str, TokenType); 7] = [
-    ("fn", FUNCTION),
-    ("let", LET),
-    ("true", TRUE),
-    ("false", FALSE),
-    ("if", IF),
-    ("else", ELSE),
-    ("return", RETURN),
+    ("fn", TokenType::FUNCTION),
+    ("let", TokenType::LET),
+    ("true", TokenType::TRUE),
+    ("false", TokenType::FALSE),
+    ("if", TokenType::IF),
+    ("else", TokenType::ELSE),
+    ("return", TokenType::RETURN),
 ];
 
 pub fn lookup_ident(ident: &str) -> TokenType {
@@ -50,10 +46,8 @@ pub fn lookup_ident(ident: &str) -> TokenType {
     {
         return tok;
     }
-    IDENT
+    TokenType::IDENT
 }
-
-pub type TokenType = &'static str;
 
 pub struct Token {
     pub token_type: TokenType,

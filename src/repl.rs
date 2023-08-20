@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::{lexer::Lexer, token::EOF};
+use crate::{lexer::Lexer, token::TokenType::EOF};
 
 const PROMPT: &str = ">> ";
 
@@ -16,7 +16,7 @@ pub fn start() {
             if tok.token_type == EOF {
                 break;
             }
-            println!("token_type:{} literal:{}", tok.token_type, tok.literal);
+            println!("token_type:{:?} literal:{}", tok.token_type, tok.literal);
         }
         buf.clear()
     }
