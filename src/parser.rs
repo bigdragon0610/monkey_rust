@@ -7,22 +7,31 @@ use crate::{
 #[derive(Debug)]
 pub struct Parser {
     l: Lexer,
+    errors: Vec<String>,
     cur_token: Token,
     peek_token: Token,
 }
 
 impl Parser {
     pub fn new(l: Lexer) -> Parser {
-        let mut p = Parser {
+        Parser {
             l,
+            errors: Vec::new(),
             cur_token: Token::new(),
             peek_token: Token::new(),
-        };
+        }
+    }
 
-        let position = p.next_token(0);
-        p.next_token(position);
+    pub fn errors(&self) -> Vec<String> {
+        return self.errors.clone();
+    }
 
-        p
+    fn peek_error(&mut self, t: TokenType) {
+        let msg = format!(
+            "expected next token to be {:?}, got {:?} instead",
+            t, self.cur_token.token_type
+        );
+        self.errors.push(msg);
     }
 
     fn next_token(&mut self, position: usize) -> usize {
@@ -91,7 +100,13 @@ impl Parser {
     }
 
     fn expect_peek(&mut self, t: TokenType, position: usize) -> Option<usize> {
-        self.peek_token_is(t).then(|| self.next_token(position))
+        if self.peek_token_is(t) {
+            let position = self.next_token(position);
+            return Some(position);
+        } else {
+            self.peek_error(t);
+            return None;
+        }
     }
 }
 
@@ -114,6 +129,8 @@ mod tests {
         let mut p = Parser::new(l);
 
         let program = p.parse_program();
+        check_parser_errors(&p);
+
         if program.statements.len() != 3 {
             panic!(
                 "program.statements does not contain 3 statements. got={}",
@@ -125,9 +142,22 @@ mod tests {
         for (i, tt) in tests.iter().enumerate() {
             let stmt = &program.statements[i];
             if !test_let_statement(stmt, tt) {
-                panic!();
+                return;
             }
         }
+    }
+
+    fn check_parser_errors(p: &Parser) {
+        let errors = p.errors();
+        if errors.len() == 0 {
+            return;
+        }
+
+        println!("parser has {} errors", errors.len());
+        for msg in errors {
+            println!("parser error: {}", msg);
+        }
+        panic!();
     }
 
     fn test_let_statement(s: &Statement, name: &str) -> bool {
