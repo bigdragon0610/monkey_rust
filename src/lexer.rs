@@ -6,7 +6,7 @@ use crate::token::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Lexer {
     input: String,
 }

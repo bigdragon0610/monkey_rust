@@ -4,12 +4,13 @@ use crate::{
     token::{Token, TokenType},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Parser {
     l: Lexer,
     errors: Vec<String>,
     cur_token: Token,
     peek_token: Token,
+    position: usize,
 }
 
 impl Parser {
@@ -19,90 +20,95 @@ impl Parser {
             errors: Vec::new(),
             cur_token: Token::new(),
             peek_token: Token::new(),
+            position: 0,
         }
     }
 
     pub fn errors(&self) -> Vec<String> {
-        return self.errors.clone();
+        self.errors.clone()
     }
 
-    fn peek_error(&mut self, t: TokenType) {
-        let msg = format!(
+    fn peek_error(&self, t: TokenType) -> String {
+        format!(
             "expected next token to be {:?}, got {:?} instead",
-            t, self.cur_token.token_type
-        );
-        self.errors.push(msg);
+            t, self.peek_token.token_type
+        )
     }
 
-    fn next_token(&mut self, position: usize) -> usize {
-        self.cur_token = self.peek_token.clone();
-        let (tok, position) = self.l.next_token(position);
-        self.peek_token = tok;
-        position
+    fn next_token(&self) -> Self {
+        let mut parser = self.clone();
+        parser.cur_token = parser.peek_token.clone();
+        (parser.peek_token, parser.position) = parser.l.next_token(parser.position);
+        parser
     }
 
-    pub fn parse_program(&mut self) -> Program {
+    pub fn parse_program(&self) -> (Program, Parser) {
         let mut program = Program::new();
-        let mut position = 0;
+        let mut parser = self.clone();
 
-        while self.cur_token.token_type != TokenType::EOF {
-            if let (Some(stmt), expect_position) = self.parse_statement(position) {
+        while parser.cur_token.token_type != TokenType::EOF {
+            let (expect_parser, stmt) = parser.parse_statement();
+            if let Some(stmt) = stmt {
                 program.statements.push(stmt);
-                position = expect_position;
             }
-            position = self.next_token(position);
+            parser = expect_parser;
+            parser = parser.next_token();
         }
-        program
+        (program, parser)
     }
 
-    fn parse_statement(&mut self, position: usize) -> (Option<Statement>, usize) {
+    fn parse_statement(&self) -> (Self, Option<Statement>) {
         match self.cur_token.token_type {
-            TokenType::LET => self.parse_let_statement(position),
-            TokenType::RETURN => self.parse_return_statement(position),
-            _ => (None, position),
+            TokenType::LET => self.parse_let_statement(),
+            TokenType::RETURN => self.parse_return_statement(),
+            _ => (self.clone(), None),
         }
     }
 
-    fn parse_let_statement(&mut self, position: usize) -> (Option<Statement>, usize) {
+    fn parse_let_statement(&self) -> (Self, Option<Statement>) {
+        let mut parser = self.clone();
         let mut stmt = LetStatement::new();
-        stmt.token = self.cur_token.clone();
-        let mut position = position;
+        stmt.token = parser.cur_token.clone();
 
-        if let Some(expect_position) = self.expect_peek(TokenType::IDENT, position) {
-            position = expect_position;
-        } else {
-            return (None, position);
+        match parser.expect_peek(TokenType::IDENT) {
+            Ok(expect_parser) => parser = expect_parser,
+            Err(error) => {
+                parser.errors.push(error);
+                return (parser, None);
+            }
         }
 
         stmt.name = Identifier {
-            token: self.cur_token.clone(),
-            value: self.cur_token.literal.clone(),
+            token: parser.cur_token.clone(),
+            value: parser.cur_token.literal.clone(),
         };
 
-        if let Some(expect_position) = self.expect_peek(TokenType::ASSIGN, position) {
-            position = expect_position;
-        } else {
-            return (None, position);
+        match parser.expect_peek(TokenType::ASSIGN) {
+            Ok(expect_parser) => parser = expect_parser,
+            Err(error) => {
+                parser.errors.push(error);
+                return (parser, None);
+            }
         }
 
-        while self.cur_token_is(TokenType::SEMICOLON) {
-            position = self.next_token(position);
+        while !parser.cur_token_is(TokenType::SEMICOLON) {
+            parser = parser.next_token();
         }
 
-        (Some(Statement::LetStatement(stmt)), position)
+        (parser, Some(Statement::LetStatement(stmt)))
     }
 
-    fn parse_return_statement(&mut self, position: usize) -> (Option<Statement>, usize) {
-        let stmt = ReturnStatement::new(self.cur_token.clone());
+    fn parse_return_statement(&self) -> (Self, Option<Statement>) {
+        let mut parser = self.clone();
+        let stmt = ReturnStatement::new(parser.cur_token.clone());
 
-        let mut position = position;
-        self.next_token(position);
+        parser = parser.next_token();
 
-        while !self.cur_token_is(TokenType::SEMICOLON) {
-            position = self.next_token(position);
+        while !parser.cur_token_is(TokenType::SEMICOLON) {
+            parser = parser.next_token();
         }
 
-        (Some(Statement::ReturnStatement(stmt)), position)
+        (parser, Some(Statement::ReturnStatement(stmt)))
     }
 
     fn cur_token_is(&self, t: TokenType) -> bool {
@@ -113,13 +119,11 @@ impl Parser {
         self.peek_token.token_type == t
     }
 
-    fn expect_peek(&mut self, t: TokenType, position: usize) -> Option<usize> {
+    fn expect_peek(&self, t: TokenType) -> Result<Parser, String> {
         if self.peek_token_is(t) {
-            let position = self.next_token(position);
-            return Some(position);
+            Ok(self.next_token())
         } else {
-            self.peek_error(t);
-            return None;
+            Err(self.peek_error(t))
         }
     }
 }
@@ -140,9 +144,9 @@ mod tests {
         .to_string();
 
         let l = Lexer::new(input);
-        let mut p = Parser::new(l);
+        let p = Parser::new(l);
 
-        let program = p.parse_program();
+        let (program, p) = p.parse_program();
         check_parser_errors(&p);
 
         if program.statements.len() != 3 {
@@ -171,9 +175,9 @@ mod tests {
         .to_string();
 
         let l = Lexer::new(input);
-        let mut p = Parser::new(l);
+        let p = Parser::new(l);
 
-        let program = p.parse_program();
+        let (program, p) = p.parse_program();
         check_parser_errors(&p);
 
         if program.statements.len() != 3 {
@@ -183,7 +187,6 @@ mod tests {
             );
         }
 
-        println!("{:?}", program);
         for stmt in program.statements {
             match stmt {
                 Statement::ReturnStatement(_) => {
