@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Identifier, LetStatement, Program, Statement},
+    ast::{Identifier, LetStatement, Program, ReturnStatement, Statement},
     lexer::Lexer,
     token::{Token, TokenType},
 };
@@ -58,6 +58,7 @@ impl Parser {
     fn parse_statement(&mut self, position: usize) -> (Option<Statement>, usize) {
         match self.cur_token.token_type {
             TokenType::LET => self.parse_let_statement(position),
+            TokenType::RETURN => self.parse_return_statement(position),
             _ => (None, position),
         }
     }
@@ -89,6 +90,19 @@ impl Parser {
         }
 
         (Some(Statement::LetStatement(stmt)), position)
+    }
+
+    fn parse_return_statement(&mut self, position: usize) -> (Option<Statement>, usize) {
+        let stmt = ReturnStatement::new(self.cur_token.clone());
+
+        let mut position = position;
+        self.next_token(position);
+
+        while !self.cur_token_is(TokenType::SEMICOLON) {
+            position = self.next_token(position);
+        }
+
+        (Some(Statement::ReturnStatement(stmt)), position)
     }
 
     fn cur_token_is(&self, t: TokenType) -> bool {
@@ -143,6 +157,44 @@ mod tests {
             let stmt = &program.statements[i];
             if !test_let_statement(stmt, tt) {
                 return;
+            }
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = "
+        return 5;
+        return 10;
+        return 993322;
+        "
+        .to_string();
+
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 3 {
+            panic!(
+                "program.statements does not contain 3 statements. got={}",
+                program.statements.len()
+            );
+        }
+
+        println!("{:?}", program);
+        for stmt in program.statements {
+            match stmt {
+                Statement::ReturnStatement(_) => {
+                    if stmt.token_literal() != "return" {
+                        panic!(
+                            "stmt.token_literal not 'return', got {}",
+                            stmt.token_literal()
+                        );
+                    }
+                }
+                _ => panic!("stmt not ReturnStatement. got={:?}", stmt),
             }
         }
     }

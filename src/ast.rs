@@ -22,14 +22,14 @@ impl Program {
 #[derive(Debug)]
 pub enum Statement {
     LetStatement(LetStatement),
-    Other,
+    ReturnStatement(ReturnStatement),
 }
 
 impl Statement {
     pub fn token_literal(&self) -> String {
         match self {
             Self::LetStatement(let_stmt) => let_stmt.token.literal.clone(),
-            _ => String::new(),
+            Self::ReturnStatement(return_stmt) => return_stmt.token.literal.clone(),
         }
     }
 }
@@ -47,6 +47,21 @@ impl LetStatement {
             token: Token::new(),
             name: Identifier::new(),
             value: None,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ReturnStatement {
+    pub token: Token,
+    pub return_value: Option<Expression>,
+}
+
+impl ReturnStatement {
+    pub fn new(token: Token) -> Self {
+        Self {
+            token,
+            return_value: None,
         }
     }
 }
