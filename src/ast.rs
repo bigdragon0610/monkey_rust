@@ -17,19 +17,38 @@ impl Program {
             .first()
             .map_or("".to_string(), |s| s.token_literal())
     }
+
+    pub fn string(&self) -> String {
+        self.statements.iter().map(|s| s.string()).collect()
+    }
+}
+
+pub trait Node {
+    fn token_literal(&self) -> String;
+    fn string(&self) -> String;
 }
 
 #[derive(Debug)]
 pub enum Statement {
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
+    ExpressionStatement(ExpressionStatement),
 }
 
-impl Statement {
-    pub fn token_literal(&self) -> String {
+impl Node for Statement {
+    fn token_literal(&self) -> String {
         match self {
-            Self::LetStatement(let_stmt) => let_stmt.token.literal.clone(),
-            Self::ReturnStatement(return_stmt) => return_stmt.token.literal.clone(),
+            Self::LetStatement(let_stmt) => let_stmt.token_literal(),
+            Self::ReturnStatement(return_stmt) => return_stmt.token_literal(),
+            Self::ExpressionStatement(expression_stmt) => expression_stmt.token_literal(),
+        }
+    }
+
+    fn string(&self) -> String {
+        match self {
+            Self::LetStatement(let_stmt) => let_stmt.string(),
+            Self::ReturnStatement(return_stmt) => return_stmt.string(),
+            Self::ExpressionStatement(expression_stmt) => expression_stmt.string(),
         }
     }
 }
@@ -51,6 +70,21 @@ impl LetStatement {
     }
 }
 
+impl Node for LetStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+
+    fn string(&self) -> String {
+        format!(
+            "{} {} = {};",
+            self.token_literal(),
+            self.name.string(),
+            self.value.clone().map_or("".to_string(), |v| v.string())
+        )
+    }
+}
+
 #[derive(Debug)]
 pub struct ReturnStatement {
     pub token: Token,
@@ -66,20 +100,60 @@ impl ReturnStatement {
     }
 }
 
-#[derive(Debug)]
-pub enum Expression {
-    Identifier(Identifier),
-}
+impl Node for ReturnStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
 
-impl Expression {
-    pub fn token_literal(&self) -> String {
-        match self {
-            Self::Identifier(identifier) => identifier.token.literal.clone(),
-        }
+    fn string(&self) -> String {
+        format!(
+            "{} {};",
+            self.token_literal(),
+            self.return_value
+                .clone()
+                .map_or("".to_string(), |v| v.string())
+        )
     }
 }
 
 #[derive(Debug)]
+pub struct ExpressionStatement {
+    pub token: Token,
+    pub expression: Option<Expression>,
+}
+
+impl Node for ExpressionStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+
+    fn string(&self) -> String {
+        self.expression
+            .clone()
+            .map_or("".to_string(), |v| v.string())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Expression {
+    Identifier(Identifier),
+}
+
+impl Node for Expression {
+    fn token_literal(&self) -> String {
+        match self {
+            Self::Identifier(identifier) => identifier.token.literal.clone(),
+        }
+    }
+
+    fn string(&self) -> String {
+        match self {
+            Self::Identifier(identifier) => identifier.string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Identifier {
     pub token: Token,
     pub value: String,
@@ -92,8 +166,14 @@ impl Identifier {
             value: String::default(),
         }
     }
+}
 
-    pub fn token_literal(&self) -> String {
+impl Node for Identifier {
+    fn token_literal(&self) -> String {
         self.token.literal.clone()
+    }
+
+    fn string(&self) -> String {
+        self.value.clone()
     }
 }

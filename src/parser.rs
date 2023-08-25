@@ -130,7 +130,10 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::Statement, lexer::Lexer};
+    use crate::{
+        ast::{Node, Statement},
+        lexer::Lexer,
+    };
 
     use super::Parser;
 
