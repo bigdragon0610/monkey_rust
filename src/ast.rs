@@ -28,7 +28,7 @@ pub trait Node {
     fn string(&self) -> String;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
@@ -53,7 +53,7 @@ impl Node for Statement {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LetStatement {
     pub token: Token,
     pub name: Identifier,
@@ -85,7 +85,7 @@ impl Node for LetStatement {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ReturnStatement {
     pub token: Token,
     pub return_value: Option<Expression>,
@@ -116,7 +116,7 @@ impl Node for ReturnStatement {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExpressionStatement {
     pub token: Token,
     pub expression: Option<Expression>,
@@ -175,5 +175,46 @@ impl Node for Identifier {
 
     fn string(&self) -> String {
         self.value.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::token::{
+        Token,
+        TokenType::{IDENT, LET},
+    };
+
+    use super::{Expression, Identifier, LetStatement, Program, Statement};
+
+    #[test]
+    fn test_string() {
+        let program = Program {
+            statements: [Statement::LetStatement(LetStatement {
+                token: Token {
+                    token_type: LET,
+                    literal: "let".to_string(),
+                },
+                name: Identifier {
+                    token: Token {
+                        token_type: IDENT,
+                        literal: "myVar".to_string(),
+                    },
+                    value: "myVar".to_string(),
+                },
+                value: Some(Expression::Identifier(Identifier {
+                    token: Token {
+                        token_type: IDENT,
+                        literal: "anotherVar".to_string(),
+                    },
+                    value: "anotherVar".to_string(),
+                })),
+            })]
+            .to_vec(),
+        };
+
+        if program.string() != "let myVar = anotherVar;".to_string() {
+            panic!("program.String() wrong. got={}", program.string())
+        }
     }
 }
