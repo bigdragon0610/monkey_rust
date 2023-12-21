@@ -9,138 +9,144 @@ use crate::token::{
 #[derive(Debug, Clone)]
 pub struct Lexer {
     input: String,
+    position: usize,
+    read_position: usize,
+    ch: u8,
 }
 
 impl Lexer {
     pub fn new(input: String) -> Self {
-        Lexer { input }
+        let mut l = Lexer {
+            input,
+            position: 0,
+            read_position: 0,
+            ch: b' ',
+        };
+        l.read_char();
+        l
     }
 
-    pub fn next_token(&self, position: usize) -> (Token, usize) {
-        let mut position = self.skip_whitespace(position);
-        let tok = self
-            .read_char(position)
-            .map(|ch| match ch {
-                '=' => {
-                    if let Some(tok) = self
-                        .read_char(position + 1)
-                        .filter(|&peek_ch| peek_ch == '=')
-                        .map(|peek_ch| Token {
-                            token_type: EQ,
-                            literal: format!("{}{}", ch, peek_ch),
-                        })
-                    {
-                        position += 1;
-                        tok
-                    } else {
-                        new_token(ASSIGN, ch)
+    pub fn next_token(&mut self) -> Token {
+        let mut tok = Token::new();
+
+        self.skip_whitespace();
+
+        match self.ch {
+            b'=' => {
+                if self.peek_char() == b'=' {
+                    let ch = self.ch;
+                    self.read_char();
+                    let literal = format!("{}{}", ch as char, self.ch as char);
+                    tok = Token {
+                        token_type: EQ,
+                        literal,
                     }
+                } else {
+                    tok = new_token(ASSIGN, self.ch);
                 }
-                '+' => new_token(PLUS, ch),
-                '-' => new_token(MINUS, ch),
-                '!' => {
-                    if let Some(tok) = self
-                        .read_char(position + 1)
-                        .filter(|&peek_ch| peek_ch == '=')
-                        .map(|peek_ch| Token {
-                            token_type: NOTEQ,
-                            literal: format!("{}{}", ch, peek_ch),
-                        })
-                    {
-                        position += 1;
-                        tok
-                    } else {
-                        new_token(BANG, ch)
+            }
+            b'+' => tok = new_token(PLUS, self.ch),
+            b'-' => tok = new_token(MINUS, self.ch),
+            b'!' => {
+                if self.peek_char() == b'=' {
+                    let ch = self.ch;
+                    self.read_char();
+                    let literal = format!("{}{}", ch as char, self.ch as char);
+                    tok = Token {
+                        token_type: NOTEQ,
+                        literal,
                     }
+                } else {
+                    tok = new_token(BANG, self.ch);
                 }
-                '/' => new_token(SLASH, ch),
-                '*' => new_token(ASTERISK, ch),
-                '<' => new_token(LT, ch),
-                '>' => new_token(GT, ch),
-                ';' => new_token(SEMICOLON, ch),
-                ',' => new_token(COMMA, ch),
-                '(' => new_token(LPAREN, ch),
-                ')' => new_token(RPAREN, ch),
-                '{' => new_token(LBRACE, ch),
-                '}' => new_token(RBRACE, ch),
-                _ => {
-                    if is_letter(ch) {
-                        let read_position = self.read_identifier(position);
-                        let literal = self.input[position..read_position].to_string();
-                        position = read_position - 1;
-                        Token {
-                            token_type: lookup_ident(&literal),
-                            literal,
-                        }
-                    } else if ch.is_ascii_digit() {
-                        let read_position = self.read_number(position);
-                        let literal = self.input[position..read_position].to_string();
-                        position = read_position - 1;
-                        Token {
-                            token_type: INT,
-                            literal,
-                        }
-                    } else {
-                        new_token(ILLEGAL, ch)
-                    }
+            }
+            b'/' => tok = new_token(SLASH, self.ch),
+            b'*' => tok = new_token(ASTERISK, self.ch),
+            b'<' => tok = new_token(LT, self.ch),
+            b'>' => tok = new_token(GT, self.ch),
+            b';' => tok = new_token(SEMICOLON, self.ch),
+            b',' => tok = new_token(COMMA, self.ch),
+            b'{' => tok = new_token(LBRACE, self.ch),
+            b'}' => tok = new_token(RBRACE, self.ch),
+            b'(' => tok = new_token(LPAREN, self.ch),
+            b')' => tok = new_token(RPAREN, self.ch),
+            0 => {
+                tok.literal = "".to_string();
+                tok.token_type = EOF;
+            }
+            _ => {
+                if is_letter(self.ch) {
+                    tok.literal = self.read_identifier();
+                    tok.token_type = lookup_ident(&tok.literal);
+                    return tok;
+                } else if self.ch.is_ascii_digit() {
+                    tok.token_type = INT;
+                    tok.literal = self.read_number();
+                    return tok;
+                } else {
+                    tok = new_token(ILLEGAL, self.ch);
                 }
-            })
-            .unwrap_or(new_token(EOF, ' '));
-        (tok, position + 1)
-    }
-
-    fn read_char(&self, position: usize) -> Option<char> {
-        self.input.chars().nth(position)
-    }
-
-    fn read_identifier(&self, position: usize) -> usize {
-        let mut position = position;
-        while let Some(ch) = self.read_char(position) {
-            if !is_letter(ch) {
-                break;
             }
-            position += 1;
-        }
-        position
+        };
+
+        self.read_char();
+        tok
     }
 
-    fn skip_whitespace(&self, position: usize) -> usize {
-        let mut position = position;
-        while let Some(ch) = self.read_char(position) {
-            if !ch.is_ascii_whitespace() {
-                break;
-            }
-            position += 1;
-        }
-        position
+    fn read_char(&mut self) {
+        self.ch = self
+            .input
+            .chars()
+            .nth(self.read_position)
+            .map_or(0, |ch| ch as u8);
+        self.position = self.read_position;
+        self.read_position += 1;
     }
 
-    fn read_number(&self, position: usize) -> usize {
-        let mut position = position;
-        while let Some(ch) = self.read_char(position) {
-            if !ch.is_ascii_digit() {
-                break;
-            }
-            position += 1;
+    fn peek_char(&self) -> u8 {
+        self.input
+            .chars()
+            .nth(self.read_position)
+            .map_or(0, |ch| ch as u8)
+    }
+
+    fn read_identifier(&mut self) -> String {
+        let position = self.position;
+        while is_letter(self.ch) {
+            self.read_char();
         }
-        position
+        self.input[position..self.position].to_string()
+    }
+
+    fn skip_whitespace(&mut self) {
+        while self.ch.is_ascii_whitespace() {
+            self.read_char();
+        }
+    }
+
+    fn read_number(&mut self) -> String {
+        let mut position = self.position;
+        while self.ch.is_ascii_digit() {
+            self.read_char();
+        }
+        self.input[position..self.position].to_string()
     }
 }
 
-fn new_token(token_type: TokenType, ch: char) -> Token {
+fn new_token(token_type: TokenType, ch: u8) -> Token {
     Token {
         token_type,
-        literal: ch.to_string(),
+        literal: (ch as char).to_string(),
     }
 }
 
-fn is_letter(ch: char) -> bool {
-    ch.is_ascii_alphabetic() || ch == '_'
+fn is_letter(ch: u8) -> bool {
+    ch.is_ascii_alphabetic() || ch == b'_'
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::Lexer;
+    use super::Lexer;
     use crate::token::TokenType::{
         ASSIGN, ASTERISK, BANG, COMMA, ELSE, EOF, EQ, FALSE, FUNCTION, GT, IDENT, IF, INT, LBRACE,
         LET, LPAREN, LT, MINUS, NOTEQ, PLUS, RBRACE, RETURN, RPAREN, SEMICOLON, SLASH, TRUE,
@@ -244,14 +250,14 @@ mod tests {
             (NOTEQ, "!="),
             (INT, "9"),
             (SEMICOLON, ";"),
-            (EOF, " "),
+            (EOF, ""),
         ];
 
-        let l = Lexer::new(input);
-        let mut posiiton = 0;
+        let mut l = Lexer::new(input);
 
         for (i, tt) in tests.into_iter().enumerate() {
-            let (tok, read_position) = l.next_token(posiiton);
+            let tok = l.next_token();
+
             if tok.token_type != tt.0 {
                 panic!(
                     "tests[{}] - tokentype wrong. expected={:?}, got={:?}",
@@ -265,7 +271,6 @@ mod tests {
                     i, tt.1, tok.literal
                 )
             }
-            posiiton = read_position;
         }
     }
 }
