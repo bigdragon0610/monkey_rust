@@ -1,30 +1,54 @@
 use crate::{
-    ast::{Identifier, LetStatement, Program, ReturnStatement, Statement},
+    ast::{
+        Expression, ExpressionStatement, Identifier, LetStatement, Program, ReturnStatement,
+        Statement,
+    },
     lexer::Lexer,
     token::{Token, TokenType},
 };
 
+enum Operator {
+    Lowest,
+    Equals,
+    LessGrater,
+    Sum,
+    Product,
+    Prefix,
+    Call,
+}
+
 #[derive(Debug, Clone)]
-pub struct Parser {
+struct Parser {
     l: Lexer,
     errors: Vec<String>,
+
     cur_token: Token,
     peek_token: Token,
-    position: usize,
 }
 
 impl Parser {
     pub fn new(l: Lexer) -> Parser {
-        Parser {
+        let mut p = Parser {
             l,
             errors: Vec::new(),
             cur_token: Token::new(),
             peek_token: Token::new(),
-            position: 0,
-        }
+        };
+
+        p.next_token();
+        p.next_token();
+
+        p
     }
 
-    pub fn errors(&self) -> Vec<String> {
+    fn parse_identifier(&self) -> Expression {
+        Expression::Identifier(Identifier {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
+        })
+    }
+
+    fn errors(&self) -> Vec<String> {
         self.errors.clone()
     }
 
@@ -35,80 +59,85 @@ impl Parser {
         )
     }
 
-    fn next_token(&self) -> Self {
-        let mut parser = self.clone();
-        parser.cur_token = parser.peek_token.clone();
-        (parser.peek_token, parser.position) = parser.l.next_token(parser.position);
-        parser
+    fn next_token(&mut self) {
+        self.cur_token = std::mem::replace(&mut self.peek_token, self.l.next_token())
     }
 
-    pub fn parse_program(&self) -> (Program, Parser) {
+    fn parse_program(&mut self) -> Program {
         let mut program = Program::new();
-        let mut parser = self.clone();
 
-        while parser.cur_token.token_type != TokenType::EOF {
-            let (expect_parser, stmt) = parser.parse_statement();
+        while !self.cur_token_is(TokenType::EOF) {
+            let stmt = self.parse_statement();
             if let Some(stmt) = stmt {
                 program.statements.push(stmt);
             }
-            parser = expect_parser;
-            parser = parser.next_token();
+            self.next_token();
         }
-        (program, parser)
+        program
     }
 
-    fn parse_statement(&self) -> (Self, Option<Statement>) {
+    fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token.token_type {
             TokenType::LET => self.parse_let_statement(),
             TokenType::RETURN => self.parse_return_statement(),
-            _ => (self.clone(), None),
+            _ => self.parse_expression_statement(),
         }
     }
 
-    fn parse_let_statement(&self) -> (Self, Option<Statement>) {
-        let mut parser = self.clone();
+    fn parse_let_statement(&mut self) -> Option<Statement> {
         let mut stmt = LetStatement::new();
-        stmt.token = parser.cur_token.clone();
+        stmt.token = self.cur_token.clone();
 
-        match parser.expect_peek(TokenType::IDENT) {
-            Ok(expect_parser) => parser = expect_parser,
-            Err(error) => {
-                parser.errors.push(error);
-                return (parser, None);
-            }
+        if !self.expect_peek(TokenType::IDENT) {
+            return None;
         }
 
         stmt.name = Identifier {
-            token: parser.cur_token.clone(),
-            value: parser.cur_token.literal.clone(),
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
         };
 
-        match parser.expect_peek(TokenType::ASSIGN) {
-            Ok(expect_parser) => parser = expect_parser,
-            Err(error) => {
-                parser.errors.push(error);
-                return (parser, None);
-            }
+        if !self.expect_peek(TokenType::ASSIGN) {
+            return None;
         }
 
-        while !parser.cur_token_is(TokenType::SEMICOLON) {
-            parser = parser.next_token();
+        while !self.cur_token_is(TokenType::SEMICOLON) {
+            self.next_token();
         }
 
-        (parser, Some(Statement::LetStatement(stmt)))
+        Some(Statement::LetStatement(stmt))
     }
 
-    fn parse_return_statement(&self) -> (Self, Option<Statement>) {
-        let mut parser = self.clone();
-        let stmt = ReturnStatement::new(parser.cur_token.clone());
+    fn parse_return_statement(&mut self) -> Option<Statement> {
+        let stmt = ReturnStatement::new(self.cur_token.clone());
 
-        parser = parser.next_token();
+        self.next_token();
 
-        while !parser.cur_token_is(TokenType::SEMICOLON) {
-            parser = parser.next_token();
+        while !self.cur_token_is(TokenType::SEMICOLON) {
+            self.next_token();
         }
 
-        (parser, Some(Statement::ReturnStatement(stmt)))
+        Some(Statement::ReturnStatement(stmt))
+    }
+
+    fn parse_expression_statement(&mut self) -> Option<Statement> {
+        let stmt = ExpressionStatement {
+            token: self.cur_token.clone(),
+            expression: self.parse_expression(Operator::Lowest as usize),
+        };
+
+        if self.peek_token_is(TokenType::SEMICOLON) {
+            self.next_token();
+        }
+
+        Some(Statement::ExpressionStatement(stmt))
+    }
+
+    fn parse_expression(&mut self, precedence: usize) -> Option<Expression> {
+        match self.cur_token.token_type {
+            TokenType::IDENT => Some(self.parse_identifier()),
+            _ => None,
+        }
     }
 
     fn cur_token_is(&self, t: TokenType) -> bool {
@@ -119,11 +148,13 @@ impl Parser {
         self.peek_token.token_type == t
     }
 
-    fn expect_peek(&self, t: TokenType) -> Result<Parser, String> {
+    fn expect_peek(&mut self, t: TokenType) -> bool {
         if self.peek_token_is(t) {
-            Ok(self.next_token())
+            self.next_token();
+            true
         } else {
-            Err(self.peek_error(t))
+            self.peek_error(t);
+            false
         }
     }
 }
@@ -131,7 +162,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{Node, Statement},
+        ast::{Expression, Node, Statement},
         lexer::Lexer,
     };
 
@@ -147,9 +178,9 @@ mod tests {
         .to_string();
 
         let l = Lexer::new(input);
-        let p = Parser::new(l);
+        let mut p = Parser::new(l);
 
-        let (program, p) = p.parse_program();
+        let program = p.parse_program();
         check_parser_errors(&p);
 
         if program.statements.len() != 3 {
@@ -178,9 +209,9 @@ mod tests {
         .to_string();
 
         let l = Lexer::new(input);
-        let p = Parser::new(l);
+        let mut p = Parser::new(l);
 
-        let (program, p) = p.parse_program();
+        let program = p.parse_program();
         check_parser_errors(&p);
 
         if program.statements.len() != 3 {
@@ -247,5 +278,44 @@ mod tests {
         }
 
         true
+    }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = "foobar".to_string();
+
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program has not enough statements. got={}",
+                program.statements.len(),
+            );
+        }
+
+        let stmt = match &program.statements[0] {
+            Statement::ExpressionStatement(stmt) => stmt,
+            _ => panic!(
+                "program.statements[0] is not Statement::ExpressionStatement. got={:?}",
+                program.statements[0]
+            ),
+        };
+
+        let ident = match &stmt.expression {
+            Some(Expression::Identifier(ident)) => ident,
+            _ => panic!("exp not Expression::Identifier. got={:?}", stmt.expression),
+        };
+        if ident.value != "foobar" {
+            panic!("ident.value not {}. got={}", "foobar", ident.value);
+        }
+        if ident.token_literal() != "foobar" {
+            panic!(
+                "ident.token_literal not {}. got={}",
+                "foobar",
+                ident.token_literal()
+            );
+        }
     }
 }
