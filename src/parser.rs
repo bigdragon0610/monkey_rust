@@ -18,15 +18,15 @@ enum Operator {
 }
 
 #[derive(Debug, Clone)]
-struct Parser {
-    l: Lexer,
+struct Parser<'a> {
+    l: Lexer<'a>,
     errors: Vec<String>,
 
     cur_token: Token,
     peek_token: Token,
 }
 
-impl Parser {
+impl Parser<'_> {
     pub fn new(l: Lexer) -> Parser {
         let mut p = Parser {
             l,
@@ -195,8 +195,7 @@ mod tests {
         let x = 5;
         let y = 10;
         let foobar = 838383;
-        "
-        .to_string();
+        ";
 
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
@@ -226,8 +225,7 @@ mod tests {
         return 5;
         return 10;
         return 993322;
-        "
-        .to_string();
+        ";
 
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
@@ -303,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_identifier_expression() {
-        let input = "foobar".to_string();
+        let input = "foobar";
 
         let l = Lexer::new(input);
         let mut p = Parser::new(l);
@@ -342,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_integer_literal_expression() {
-        let input = "5;".to_string();
+        let input = "5;";
 
         let l = Lexer::new(input);
         let mut p = Parser::new(l);

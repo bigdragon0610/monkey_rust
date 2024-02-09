@@ -10,7 +10,7 @@ pub fn start() {
         print!("{}", PROMPT);
         std::io::stdout().flush().unwrap();
         std::io::stdin().read_line(&mut buf).unwrap();
-        let mut l = Lexer::new(buf.clone());
+        let mut l = Lexer::new(&buf);
         loop {
             let tok = l.next_token();
             if tok.token_type == EOF {

@@ -7,15 +7,15 @@ use crate::token::{
 };
 
 #[derive(Debug, Clone)]
-pub struct Lexer {
-    input: String,
+pub struct Lexer<'a> {
+    input: &'a str,
     position: usize,
     read_position: usize,
     ch: u8,
 }
 
-impl Lexer {
-    pub fn new(input: String) -> Self {
+impl Lexer<'_> {
+    pub fn new(input: &str) -> Lexer {
         let mut l = Lexer {
             input,
             position: 0,
@@ -173,8 +173,7 @@ mod tests {
 
         10 == 10;
         10 != 9;
-        "
-        .to_string();
+        ";
 
         let tests = [
             (LET, "let"),
