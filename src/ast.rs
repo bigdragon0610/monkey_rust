@@ -12,10 +12,8 @@ impl Program {
         }
     }
 
-    pub fn token_literal(&self) -> String {
-        self.statements
-            .first()
-            .map_or("".to_string(), |s| s.token_literal())
+    pub fn token_literal(&self) -> &str {
+        self.statements.first().map_or("", |s| s.token_literal())
     }
 
     pub fn string(&self) -> String {
@@ -24,7 +22,7 @@ impl Program {
 }
 
 pub trait Node {
-    fn token_literal(&self) -> String;
+    fn token_literal(&self) -> &str;
     fn string(&self) -> String;
 }
 
@@ -36,7 +34,7 @@ pub enum Statement {
 }
 
 impl Node for Statement {
-    fn token_literal(&self) -> String {
+    fn token_literal(&self) -> &str {
         match self {
             Self::LetStatement(let_stmt) => let_stmt.token_literal(),
             Self::ReturnStatement(return_stmt) => return_stmt.token_literal(),
@@ -71,8 +69,8 @@ impl LetStatement {
 }
 
 impl Node for LetStatement {
-    fn token_literal(&self) -> String {
-        self.token.literal.clone()
+    fn token_literal(&self) -> &str {
+        &self.token.literal
     }
 
     fn string(&self) -> String {
@@ -101,8 +99,8 @@ impl ReturnStatement {
 }
 
 impl Node for ReturnStatement {
-    fn token_literal(&self) -> String {
-        self.token.literal.clone()
+    fn token_literal(&self) -> &str {
+        &self.token.literal
     }
 
     fn string(&self) -> String {
@@ -123,8 +121,8 @@ pub struct ExpressionStatement {
 }
 
 impl Node for ExpressionStatement {
-    fn token_literal(&self) -> String {
-        self.token.literal.clone()
+    fn token_literal(&self) -> &str {
+        &self.token.literal
     }
 
     fn string(&self) -> String {
@@ -141,10 +139,10 @@ pub enum Expression {
 }
 
 impl Node for Expression {
-    fn token_literal(&self) -> String {
+    fn token_literal(&self) -> &str {
         match self {
-            Self::Identifier(identifier) => identifier.token.literal.clone(),
-            Self::IntegerLiteral(integer_literal) => integer_literal.token.literal.clone(),
+            Self::Identifier(identifier) => &identifier.token.literal,
+            Self::IntegerLiteral(integer_literal) => &integer_literal.token.literal,
         }
     }
 
@@ -172,8 +170,8 @@ impl Identifier {
 }
 
 impl Node for Identifier {
-    fn token_literal(&self) -> String {
-        self.token.literal.clone()
+    fn token_literal(&self) -> &str {
+        &self.token.literal
     }
 
     fn string(&self) -> String {
@@ -188,8 +186,8 @@ pub struct IntegerLiteral {
 }
 
 impl Node for IntegerLiteral {
-    fn token_literal(&self) -> String {
-        self.token.literal.clone()
+    fn token_literal(&self) -> &str {
+        &self.token.literal
     }
 
     fn string(&self) -> String {
