@@ -125,7 +125,7 @@ impl Lexer<'_> {
     }
 
     fn read_number(&mut self) -> String {
-        let mut position = self.position;
+        let position = self.position;
         while self.ch.is_ascii_digit() {
             self.read_char();
         }
