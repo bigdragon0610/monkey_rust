@@ -41,8 +41,8 @@ impl Parser {
         p
     }
 
-    fn errors(&self) -> Vec<String> {
-        self.errors.clone()
+    fn errors(&self) -> &Vec<String> {
+        &self.errors
     }
 
     fn peek_error(&self, t: TokenType) -> String {
