@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        Expression, ExpressionStatement, Identifier, LetStatement, Program, ReturnStatement,
-        Statement,
+        Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Program,
+        ReturnStatement, Statement,
     },
     lexer::Lexer,
     token::{Token, TokenType},
@@ -39,13 +39,6 @@ impl Parser {
         p.next_token();
 
         p
-    }
-
-    fn parse_identifier(&self) -> Expression {
-        Expression::Identifier(Identifier {
-            token: self.cur_token.clone(),
-            value: self.cur_token.literal.clone(),
-        })
     }
 
     fn errors(&self) -> Vec<String> {
@@ -135,9 +128,37 @@ impl Parser {
 
     fn parse_expression(&mut self, precedence: usize) -> Option<Expression> {
         match self.cur_token.token_type {
-            TokenType::IDENT => Some(self.parse_identifier()),
+            TokenType::IDENT => self.parse_identifier(),
+            TokenType::INT => self.parese_integer_literal(),
             _ => None,
         }
+    }
+
+    fn parse_identifier(&self) -> Option<Expression> {
+        Some(Expression::Identifier(Identifier {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
+        }))
+    }
+
+    fn parese_integer_literal(&mut self) -> Option<Expression> {
+        let value = match self.cur_token.literal.parse() {
+            Ok(value) => value,
+            _ => {
+                self.errors.push(format!(
+                    "could not parse {} as integer",
+                    self.cur_token.literal
+                ));
+                return None;
+            }
+        };
+
+        let lit = IntegerLiteral {
+            token: self.cur_token.clone(),
+            value,
+        };
+
+        Some(Expression::IntegerLiteral(lit))
     }
 
     fn cur_token_is(&self, t: TokenType) -> bool {
@@ -315,6 +336,48 @@ mod tests {
                 "ident.token_literal not {}. got={}",
                 "foobar",
                 ident.token_literal()
+            );
+        }
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = "5;".to_string();
+
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        if program.statements.len() != 1 {
+            panic!(
+                "program has no enough statements. got={}",
+                program.statements.len()
+            );
+        }
+        let stmt = match &program.statements[0] {
+            Statement::ExpressionStatement(stmt) => stmt,
+            _ => panic!(
+                "program.statements[0] is not Statement::ExpressionStatement. got={:?}",
+                program.statements[0]
+            ),
+        };
+
+        let literal = match &stmt.expression {
+            Some(Expression::IntegerLiteral(literal)) => literal,
+            _ => panic!(
+                "exp not Expression::IntegerLiteral. got={:?}",
+                stmt.expression
+            ),
+        };
+        if literal.value != 5 {
+            panic!("literal.value not {}. got={}", 5, literal.value);
+        }
+        if literal.token_literal() != "5" {
+            panic!(
+                "literal.token_literal not {}. got={}",
+                5,
+                literal.token_literal()
             );
         }
     }
